@@ -1,8 +1,12 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../db.js";
 import { ReadingStatus } from "../generated/prisma/client.js";
 
-export async function getStats(_req: Request, res: Response) {
+export async function getStats(
+  _req: Request,
+  res: Response,
+  next: NextFunction
+) {
   try {
     const [
       totalBooks,
@@ -149,9 +153,6 @@ export async function getStats(_req: Request, res: Response) {
       topTags,
     });
   } catch (error) {
-    console.error("Error al obtener estadísticas:", error);
-    return res.status(500).json({
-      message: "No se pudieron calcular las estadísticas",
-    });
+    next(error);
   }
 }

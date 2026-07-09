@@ -2,6 +2,10 @@ import "dotenv/config";
 import express from "express";
 import authorRoutes from "./routes/author.routes.js";
 import bookRoutes from "./routes/book.routes.js";
+import {
+  errorHandler,
+  notFoundHandler,
+} from "./middlewares/error.middleware.js";
 import statsRoutes from "./routes/stats.routes.js";
 
 const app = express();
@@ -16,6 +20,9 @@ app.use("/stats", statsRoutes);
 app.get("/", (_req, res) => {
   res.json({ message: "API de biblioteca funcionando" });
 });
+
+app.use(notFoundHandler);
+app.use(errorHandler);
 
 app.listen(port, () => {
   console.log(`Servidor escuchando en http://localhost:${port}`);

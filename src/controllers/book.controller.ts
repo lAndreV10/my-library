@@ -1,4 +1,4 @@
-import type { Request, Response } from "express";
+import type { NextFunction, Request, Response } from "express";
 import { prisma } from "../db.js";
 import {
   bookParamsSchema,
@@ -11,7 +11,11 @@ import { ReadingStatus, type Prisma } from "../generated/prisma/client.js";
 const normalizeTags = (tags: string[]) =>
   Array.from(new Set(tags.map((tag) => tag.toLowerCase().trim())));
 
-export async function createBook(req: Request, res: Response) {
+export async function createBook(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   const result = createBookSchema.safeParse(req.body);
 
   if (!result.success) {
@@ -74,15 +78,15 @@ export async function createBook(req: Request, res: Response) {
 
     return res.status(201).json(book);
   } catch (error) {
-    console.error("Error al crear libro:", error);
-
-    return res.status(500).json({
-      message: "No se pudo registrar el libro",
-    });
+    next(error);
   }
 }
 
-export async function getBooks(req: Request, res: Response) {
+export async function getBooks(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   const result = getBooksQuerySchema.safeParse(req.query);
 
   if (!result.success) {
@@ -170,15 +174,15 @@ export async function getBooks(req: Request, res: Response) {
       },
     });
   } catch (error) {
-    console.error("Error al listar libros:", error);
-
-    return res.status(500).json({
-      message: "No se pudieron listar los libros",
-    });
+    next(error);
   }
 }
 
-export async function getBookById(req: Request, res: Response) {
+export async function getBookById(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   const result = bookParamsSchema.safeParse(req.params);
 
   if (!result.success) {
@@ -205,15 +209,15 @@ export async function getBookById(req: Request, res: Response) {
 
     return res.status(200).json(book);
   } catch (error) {
-    console.error("Error al obtener libro:", error);
-
-    return res.status(500).json({
-      message: "No se pudo obtener el libro",
-    });
+    next(error);
   }
 }
 
-export async function updateBook(req: Request, res: Response) {
+export async function updateBook(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   const paramsResult = bookParamsSchema.safeParse(req.params);
 
   if (!paramsResult.success) {
@@ -314,15 +318,15 @@ export async function updateBook(req: Request, res: Response) {
 
     return res.status(200).json(updatedBook);
   } catch (error) {
-    console.error("Error al actualizar libro:", error);
-
-    return res.status(500).json({
-      message: "No se pudo actualizar el libro",
-    });
+    next(error);
   }
 }
 
-export async function deleteBook(req: Request, res: Response) {
+export async function deleteBook(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   const result = bookParamsSchema.safeParse(req.params);
 
   if (!result.success) {
@@ -350,15 +354,15 @@ export async function deleteBook(req: Request, res: Response) {
 
     return res.status(204).send();
   } catch (error) {
-    console.error("Error al eliminar libro:", error);
-
-    return res.status(500).json({
-      message: "No se pudo eliminar el libro",
-    });
+    next(error);
   }
 }
 
-export async function getBookHistory(req: Request, res: Response) {
+export async function getBookHistory(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
   const result = bookParamsSchema.safeParse(req.params);
 
   if (!result.success) {
@@ -388,10 +392,6 @@ export async function getBookHistory(req: Request, res: Response) {
 
     return res.status(200).json(history);
   } catch (error) {
-    console.error("Error al obtener historial del libro:", error);
-
-    return res.status(500).json({
-      message: "No se pudo obtener el historial del libro",
-    });
+    next(error);
   }
 }
