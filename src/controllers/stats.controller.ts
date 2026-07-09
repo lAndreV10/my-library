@@ -151,7 +151,7 @@ export async function getStats(_req: Request, res: Response) {
   } catch (error) {
     console.error("Error al obtener estadísticas:", error);
     return res.status(500).json({
-      message: "Ocurrió un error inesperado al calcular las estadísticas",
+      message: "No se pudieron calcular las estadísticas",
     });
   }
 }

@@ -292,7 +292,6 @@ npx prisma migrate status
 ## Pendiente
 
 - Agregar script de seed.
-- Agregar `.env.example`.
 - Agregar pruebas.
 - Completar colección de Postman.
 - Agregar middleware centralizado de errores.
