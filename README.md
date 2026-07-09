@@ -51,6 +51,12 @@ Ejecutar migraciones:
 npx prisma migrate dev
 ```
 
+Cargar datos de prueba:
+
+```bash
+npm run seed
+```
+
 Levantar el servidor:
 
 ```bash
@@ -291,7 +297,6 @@ npx prisma migrate status
 
 ## Pendiente
 
-- Agregar script de seed.
 - Agregar pruebas.
 - Completar colección de Postman.
 - Agregar middleware centralizado de errores.
