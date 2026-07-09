@@ -295,8 +295,8 @@ Ver estado de migraciones:
 npx prisma migrate status
 ```
 
-## Pendiente
+Probar endpoints desde un cliente REST:
 
-- Agregar pruebas.
-- Completar colección de Postman.
-- Agregar middleware centralizado de errores.
+```text
+requests.http
+```

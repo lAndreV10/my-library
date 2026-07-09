@@ -1,0 +1,73 @@
+@baseUrl = http://localhost:3000
+@authorId = 8c4f1f90-8c2a-4a17-85d1-b9e58a87c001
+@bookId = 9d7e3d92-f82a-4b3a-a138-e8a392d1b001
+
+### Health check
+GET {{baseUrl}}/
+
+### Listar autores
+GET {{baseUrl}}/authors?page=1&limit=10
+
+### Buscar autores por nombre
+GET {{baseUrl}}/authors?name=tolkien
+
+### Crear autor
+POST {{baseUrl}}/authors
+Content-Type: application/json
+
+{
+  "name": "Ursula K. Le Guin",
+  "country": "Estados Unidos"
+}
+
+### Detalle de autor
+GET {{baseUrl}}/authors/{{authorId}}
+
+### Listar libros
+GET {{baseUrl}}/books?page=1&limit=10
+
+### Filtrar libros
+GET {{baseUrl}}/books?status=read&tag=classic&minRating=4
+
+### Crear libro
+POST {{baseUrl}}/books
+Content-Type: application/json
+
+{
+  "title": "Un mago de Terramar",
+  "authorId": "{{authorId}}",
+  "genre": "fiction",
+  "status": "to_read",
+  "tags": ["fantasy", "classic"]
+}
+
+### Detalle de libro
+GET {{baseUrl}}/books/{{bookId}}
+
+### Actualizar libro
+PATCH {{baseUrl}}/books/{{bookId}}
+Content-Type: application/json
+
+{
+  "status": "read",
+  "rating": 5,
+  "tags": ["classic", "fantasy", "adventure"]
+}
+
+### Historial de libro
+GET {{baseUrl}}/books/{{bookId}}/history
+
+### Eliminar libro
+DELETE {{baseUrl}}/books/{{bookId}}
+
+### Estadisticas
+GET {{baseUrl}}/stats
+
+### Ruta no encontrada
+GET {{baseUrl}}/no-existe
+
+### JSON invalido
+POST {{baseUrl}}/authors
+Content-Type: application/json
+
+{invalid json
