@@ -4,8 +4,7 @@
 // Get a free hosted Postgres database in seconds: `npx create-db`
 
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
@@ -13,14 +12,14 @@ datasource db {
 }
 
 
-model Author[
+model Author{
   id          String @id @default(uuid())
   name        String
   country     String?
   createdAt   DateTime @default(now())
-  updatedAt   DareTime @updatedAt
-  library Book[]
-]
+  updatedAt   DateTime @updatedAt
+  books       Book[]
+}
 
 enum BookGenre{
   fiction
@@ -45,5 +44,25 @@ model Book{
   status      ReadingStatus
   rating      Int?
   createdAt   DateTime  @default(now())
-  updatedAt   DareTime  @updatedAt    
+  updatedAt   DateTime  @updatedAt   
+  author      Author    @relation(fields: [authorId], references: [id]) 
+  history     StatusHistory[]
+  deletedAt   DateTime?
+  tags        Tag[]
+}
+
+model Tag{
+  id          String    @id @default(uuid())
+  name        String    @unique
+  books        Book[]
+}
+
+
+model StatusHistory{
+  id              String @id  @default(uuid())
+  bookId          String
+  fromStatus      ReadingStatus?
+  toStatus        ReadingStatus
+  changedAt       DateTime    @default(now())
+  book            Book @relation(fields: [bookId], references: [id])
 }
