@@ -1,11 +1,15 @@
 import type { Request, Response } from "express";
 import { prisma } from "../db.js";
 import {
-  createBookSchema,
-  updateBookSchema,
   bookParamsSchema,
+  createBookSchema,
+  getBooksQuerySchema,
+  updateBookSchema,
 } from "../schemas/book.schema.js";
-import { BookGenre, ReadingStatus } from "../generated/prisma/client.js";
+import { ReadingStatus, type Prisma } from "../generated/prisma/client.js";
+
+const normalizeTags = (tags: string[]) =>
+  Array.from(new Set(tags.map((tag) => tag.toLowerCase().trim())));
 
 export async function createBook(req: Request, res: Response) {
   const result = createBookSchema.safeParse(req.body);
@@ -16,14 +20,13 @@ export async function createBook(req: Request, res: Response) {
 
   const { title, authorId, genre, status, rating, tags } = result.data;
 
-  // Regla de negocio: rating solo es válido si status = 'read'
   if (rating !== undefined && status !== ReadingStatus.read) {
     return res.status(409).json({
-      message: "La calificación (rating) solo es válida si el estado de lectura es 'read'",
+      message:
+        "La calificación (rating) solo es válida si el estado de lectura es 'read'",
     });
   }
 
-  // Verificar si el autor existe
   const authorExists = await prisma.author.findUnique({
     where: { id: authorId },
   });
@@ -35,13 +38,9 @@ export async function createBook(req: Request, res: Response) {
   }
 
   try {
-    // Normalizar tags: eliminar espacios extras, duplicados y convertir a minúsculas
-    const uniqueTags = Array.from(
-      new Set(tags.map((tag) => tag.toLowerCase().trim()))
-    );
+    const uniqueTags = normalizeTags(tags);
 
     const book = await prisma.$transaction(async (tx) => {
-      // 1. Crear el libro y conectar/crear los tags correspondientes
       const newBook = await tx.book.create({
         data: {
           title,
@@ -62,7 +61,6 @@ export async function createBook(req: Request, res: Response) {
         },
       });
 
-      // 2. Crear la primera entrada en el historial de estados
       await tx.statusHistory.create({
         data: {
           bookId: newBook.id,
@@ -77,33 +75,105 @@ export async function createBook(req: Request, res: Response) {
     return res.status(201).json(book);
   } catch (error) {
     console.error("Error al crear libro:", error);
+
     return res.status(500).json({
-      message: "Ocurrió un error inesperado al intentar registrar el libro",
+      message: "No se pudo registrar el libro",
     });
   }
 }
 
-export async function getBooks(_req: Request, res: Response) {
+export async function getBooks(req: Request, res: Response) {
+  const result = getBooksQuerySchema.safeParse(req.query);
+
+  if (!result.success) {
+    return res.status(422).json(result.error.format());
+  }
+
+  const {
+    status,
+    genre,
+    authorId,
+    authorName,
+    tag,
+    minRating,
+    page,
+    limit,
+    sortBy,
+    order,
+  } = result.data;
+
+  const where: Prisma.BookWhereInput = {
+    deletedAt: null,
+  };
+
+  if (status) {
+    where.status = status;
+  }
+
+  if (genre) {
+    where.genre = genre;
+  }
+
+  if (authorId) {
+    where.authorId = authorId;
+  }
+
+  if (authorName) {
+    where.author = {
+      name: {
+        contains: authorName,
+        mode: "insensitive",
+      },
+    };
+  }
+
+  if (tag) {
+    where.tags = {
+      some: {
+        name: tag.toLowerCase().trim(),
+      },
+    };
+  }
+
+  if (minRating !== undefined) {
+    where.rating = {
+      gte: minRating,
+    };
+  }
+
+  const orderBy: Prisma.BookOrderByWithRelationInput = {
+    [sortBy]: order,
+  };
+
   try {
-    const books = await prisma.book.findMany({
-      where: {
-        deletedAt: null,
-      },
-      include: {
-        author: true,
-        tags: true,
-        history: true,
-      },
-      orderBy: {
-        createdAt: "desc",
+    const [total, books] = await Promise.all([
+      prisma.book.count({ where }),
+      prisma.book.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy,
+        include: {
+          author: true,
+          tags: true,
+        },
+      }),
+    ]);
+
+    return res.status(200).json({
+      data: books,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
     });
-
-    return res.status(200).json(books);
   } catch (error) {
-    console.error("Error al obtener libros:", error);
+    console.error("Error al listar libros:", error);
+
     return res.status(500).json({
-      message: "Ocurrió un error al obtener los libros",
+      message: "No se pudieron listar los libros",
     });
   }
 }
@@ -115,12 +185,10 @@ export async function getBookById(req: Request, res: Response) {
     return res.status(422).json(result.error.format());
   }
 
-  const { id } = result.data;
-
   try {
     const book = await prisma.book.findFirst({
       where: {
-        id,
+        id: result.data.id,
         deletedAt: null,
       },
       include: {
@@ -137,20 +205,23 @@ export async function getBookById(req: Request, res: Response) {
 
     return res.status(200).json(book);
   } catch (error) {
-    console.error("Error al obtener detalle del libro:", error);
+    console.error("Error al obtener libro:", error);
+
     return res.status(500).json({
-      message: "Ocurrió un error inesperado al buscar el libro",
+      message: "No se pudo obtener el libro",
     });
   }
 }
 
 export async function updateBook(req: Request, res: Response) {
   const paramsResult = bookParamsSchema.safeParse(req.params);
+
   if (!paramsResult.success) {
     return res.status(422).json(paramsResult.error.format());
   }
 
   const bodyResult = updateBookSchema.safeParse(req.body);
+
   if (!bodyResult.success) {
     return res.status(422).json(bodyResult.error.format());
   }
@@ -172,12 +243,17 @@ export async function updateBook(req: Request, res: Response) {
       });
     }
 
-    const finalStatus = status || currentBook.status;
+    const finalStatus = status ?? currentBook.status;
     const finalRating = rating !== undefined ? rating : currentBook.rating;
 
-    if (finalRating !== null && finalRating !== undefined && finalStatus !== ReadingStatus.read) {
+    if (
+      finalRating !== null &&
+      finalRating !== undefined &&
+      finalStatus !== ReadingStatus.read
+    ) {
       return res.status(409).json({
-        message: "La calificación (rating) solo es válida si el estado de lectura es 'read'",
+        message:
+          "La calificación solo es válida si el estado de lectura es 'read'",
       });
     }
 
@@ -185,6 +261,7 @@ export async function updateBook(req: Request, res: Response) {
       const authorExists = await prisma.author.findUnique({
         where: { id: authorId },
       });
+
       if (!authorExists) {
         return res.status(404).json({
           message: "El nuevo autor especificado no existe",
@@ -192,17 +269,17 @@ export async function updateBook(req: Request, res: Response) {
       }
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.BookUncheckedUpdateInput = {};
+
     if (title !== undefined) updateData.title = title;
     if (authorId !== undefined) updateData.authorId = authorId;
     if (genre !== undefined) updateData.genre = genre;
     if (status !== undefined) updateData.status = status;
-    if (rating !== undefined) updateData.rating = rating ?? null;
+    if (rating !== undefined) updateData.rating = rating;
 
     if (tags !== undefined) {
-      const uniqueTags = Array.from(
-        new Set(tags.map((tag) => tag.toLowerCase().trim()))
-      );
+      const uniqueTags = normalizeTags(tags);
+
       updateData.tags = {
         set: [],
         connectOrCreate: uniqueTags.map((tagName) => ({
@@ -237,9 +314,10 @@ export async function updateBook(req: Request, res: Response) {
 
     return res.status(200).json(updatedBook);
   } catch (error) {
-    console.error("Error al actualizar el libro:", error);
+    console.error("Error al actualizar libro:", error);
+
     return res.status(500).json({
-      message: "Ocurrió un error inesperado al actualizar el libro",
+      message: "No se pudo actualizar el libro",
     });
   }
 }
@@ -251,12 +329,10 @@ export async function deleteBook(req: Request, res: Response) {
     return res.status(422).json(result.error.format());
   }
 
-  const { id } = result.data;
-
   try {
     const currentBook = await prisma.book.findFirst({
       where: {
-        id,
+        id: result.data.id,
         deletedAt: null,
       },
     });
@@ -268,17 +344,16 @@ export async function deleteBook(req: Request, res: Response) {
     }
 
     await prisma.book.update({
-      where: { id },
-      data: {
-        deletedAt: new Date(),
-      },
+      where: { id: result.data.id },
+      data: { deletedAt: new Date() },
     });
 
     return res.status(204).send();
   } catch (error) {
-    console.error("Error al eliminar libro (soft delete):", error);
+    console.error("Error al eliminar libro:", error);
+
     return res.status(500).json({
-      message: "Ocurrió un error inesperado al intentar eliminar el libro",
+      message: "No se pudo eliminar el libro",
     });
   }
 }
@@ -307,19 +382,16 @@ export async function getBookHistory(req: Request, res: Response) {
     }
 
     const history = await prisma.statusHistory.findMany({
-      where: {
-        bookId: id,
-      },
-      orderBy: {
-        changedAt: "asc",
-      },
+      where: { bookId: id },
+      orderBy: { changedAt: "asc" },
     });
 
     return res.status(200).json(history);
   } catch (error) {
     console.error("Error al obtener historial del libro:", error);
+
     return res.status(500).json({
-      message: "Ocurrió un error inesperado al buscar el historial del libro",
+      message: "No se pudo obtener el historial del libro",
     });
   }
 }

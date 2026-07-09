@@ -1,8 +1,8 @@
 import { Router } from "express";
 import {
   createAuthor,
-  getAuthors,
   getAuthorById,
+  getAuthors,
 } from "../controllers/author.controller.js";
 
 const router = Router();
